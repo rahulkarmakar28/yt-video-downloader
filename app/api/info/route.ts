@@ -34,7 +34,7 @@ export async function GET(req: Request) {
                 .padStart(2, "0")}`,
             formats,
         });
-    } catch (err: any) {
+    } catch (err) {
         console.error("Failed to fetch info:", err);
         return NextResponse.json({
             error: "Could not parse video – try a different link or wait for an update.",
