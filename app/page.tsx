@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { ChangeEvent, KeyboardEvent, useState } from 'react';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,16 +41,21 @@ export default function YouTubeDownloader() {
     setVideoInfo(null)
 
     try {
-      const response = await fetch(`/api/info?url=${encodeURIComponent(url)}`)
+      const response = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch video information")
+        const errText = await response.text();
+        throw new Error(`API Error: ${response.status} - ${errText}`);
       }
 
-      const data = await response.json()
-      setVideoInfo(data)
+      const data = await response.json();
+      console.log(data)
+      setVideoInfo(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      console.error("Frontend Error:", err);
+      // setError(err instanceof Error ? err.message : "An unknown error occurred");
+      setError("An unknown error occurred");
+
     } finally {
       setLoading(false)
     }
@@ -61,15 +66,23 @@ export default function YouTubeDownloader() {
 
     setDownloading(format)
     setError(null)
-
     try {
       const response = await fetch(`/api/download?url=${encodeURIComponent(url)}&format=${format}`)
 
       if (!response.ok) {
-        throw new Error(`Failed to download ${format.toUpperCase()}`)
+        let errorMessage = "Failed to download"
+
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch {
+          const text = await response.text()
+          if (text && !text.startsWith("{")) errorMessage = text
+        }
+
+        throw new Error(errorMessage)
       }
 
-      // Create a blob from the response and trigger download
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -79,11 +92,14 @@ export default function YouTubeDownloader() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(downloadUrl)
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed")
+      const friendlyMessage = err instanceof Error ? err.message : "Something went wrong"
+      setError(friendlyMessage)  // this is used in your Alert component
     } finally {
       setDownloading(null)
     }
+
   }
 
   const isValidYouTubeUrl = (url: string) => {
@@ -113,9 +129,11 @@ export default function YouTubeDownloader() {
                 type="url"
                 placeholder="https://www.youtube.com/watch?v=..."
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
                 className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && fetchVideoInfo()}
+                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === "Enter") fetchVideoInfo();
+                }}
               />
               <Button
                 onClick={fetchVideoInfo}
@@ -210,7 +228,7 @@ export default function YouTubeDownloader() {
                 <Button
                   onClick={() => downloadVideo("mp4")}
                   disabled={downloading !== null}
-                  className="h-16 text-lg bg-blue-600 hover:bg-blue-700"
+                  className="h-16 text-lg bg-blue-600 hover:bg-blue-700 cursor-pointer"
                 >
                   {downloading === "mp4" ? (
                     <>
@@ -228,7 +246,7 @@ export default function YouTubeDownloader() {
                 <Button
                   onClick={() => downloadVideo("mp3")}
                   disabled={downloading !== null}
-                  className="h-16 text-lg bg-green-600 hover:bg-green-700"
+                  className="h-16 text-lg bg-green-600 hover:bg-green-700 cursor-pointer"
                 >
                   {downloading === "mp3" ? (
                     <>
