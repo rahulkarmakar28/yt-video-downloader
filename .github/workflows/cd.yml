@@ -1,0 +1,47 @@
+name: CD PIPELINE
+
+on:
+  workflow_run:
+    workflows: ["CI PIPELINE"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Remove old Docker image
+        run: |
+          docker rmi ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest || true
+
+      - name: Pull latest image from ECR
+        run: |
+          docker pull ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
+
+      - name: Stop and remove old container
+        run: |
+          docker stop yt-video-downloader || true
+          docker rm yt-video-downloader || true
+
+      - name: Run Docker container
+        run: |
+          docker run -d \
+            --restart unless-stopped \
+            -p "${{ secrets.PORT }}:${{ secrets.PORT }}" \
+            --env "PORT=${{ secrets.PORT }}" \
+            --name yt-video-downloader \
+            ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
+
+      - name: Verify container is running
+        run: docker ps | grep yt-video-downloader
