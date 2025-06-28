@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Decode EC2 SSH Key
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > ec2-key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2-key.pem
           chmod 600 ec2-key.pem
 
       - name: Connect to EC2 and deploy
